@@ -18,6 +18,7 @@ Changelog (v1.0):
         - timeout: a local override to the class wide timeout if user wants a specific timeout on a specific call to expect
     - Added function nexpect.settimeout()
     - Added shutdown and start methods
+    - Tested github
 '''
 
 import threading,sys,socket,re,time
