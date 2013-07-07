@@ -1,7 +1,12 @@
 '''
 nexpect.py
 Authors: Josh Christman and Nathan Hart
-Version: 1.0
+Version: 1.0.1
+Date: 6 July 2013
+
+Changelog (v1.0.1):
+    - Added default parameter to nexpect.sendline
+        - Allows the method to be called as nexpect.sendline() instead of nexpect.sendline('')
 
 Changelog (v1.0):
     - Added lots of comments
@@ -18,6 +23,7 @@ Changelog (v1.0):
         - timeout: a local override to the class wide timeout if user wants a specific timeout on a specific call to expect
     - Added function nexpect.settimeout()
     - Added shutdown and start methods
+    - Tested github
 '''
 
 import threading,sys,socket,re,time
@@ -57,7 +63,7 @@ class nexpect():
     '''
     This method does nothing but call the send method of the socket and pass the data to the socket
     '''
-    def send(self, data):
+    def send(self, data=''):
         self.socket.sendall(data)
 
     '''
@@ -66,7 +72,7 @@ class nexpect():
     Optional parameters are:
         delimeter - Defaults to a '\n' but can be set to anything
     '''
-    def sendline(self, data, delimeter='\n'):
+    def sendline(self, data='', delimeter='\n'):
         self.socket.sendall(data + delimeter)
 
     '''
