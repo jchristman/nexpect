@@ -26,6 +26,8 @@ class nexpectTest(unittest.TestCase):
                     sock.sendall('This is only a test.\n\n Steve')
                 elif 'Timeout' in data:
                     time.sleep(2)
+                elif 'bad_regex' in data:
+                    sock.sendall('Data that does not match regex')
         except:
             return
 
@@ -33,6 +35,8 @@ class nexpectTest(unittest.TestCase):
         thread.start_new_thread(self.startTestServer,())
 
     def test_createModuleWithSocket(self):
+        time.sleep(1) # Make sure the server has had time to set up
+
         sock = socket.socket()
         sock.connect(('localhost',9000))
         s = nexpect.nexpect(sock)
@@ -63,6 +67,11 @@ class nexpectTest(unittest.TestCase):
         s.sendline('Timeout')
         with self.assertRaises(nexpect.TimeoutException):
             s.expect('timeout',timeout=1)
+
+        s.sendline('bad_regex')
+        with self.assertRaises(nexpect.TimeoutException):
+            s.expect('BOB',timeout=1)    # Because we are expecting BOB and it will not be coming
+
         s.sendline('exit')
         s.shutdown()
 

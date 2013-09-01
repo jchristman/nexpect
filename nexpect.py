@@ -1,8 +1,14 @@
 '''
 nexpect.py
 Authors: Josh Christman and Nathan Hart
-Version: 1.0.1
-Date: 6 July 2013
+Version: 1.0.2
+Date: 1 September 2013
+
+Changelog (v1.0.2):
+    - Modified the TimeoutException to optionally print data
+    - Modified the nexpect.expect function to print the data it received if the function times out in the exception data. This will make it easier to tell why a function failed to match a regex or set of regexes.
+    - Added a parameter to nexpect.expect that will optionally exclude the matched regex from the data returned, essentially leaving only the data before the regex is matched
+    - Added a method "recv" to access the underlying socket recv mechanism without having to touch the socket manually. Allows the user to recv a fixed number of bytes if necessary.
 
 Changelog (v1.0.1):
     - Added default parameter to nexpect.sendline
@@ -74,12 +80,19 @@ class nexpect():
     '''
     def sendline(self, data='', delimeter='\n'):
         self.socket.sendall(data + delimeter)
+    
+    '''
+    A convience method to access the underlying socket's recv mechanism.
+    '''
+    def recv(self, num_bytes):
+        return self.socket.recv(num_bytes)
 
     '''
     This function takes a single regex in string form or a list/tuple of string regexes and receives data
     on the socket until it matches the regex. If a single regex is passed in, only the data received is
     returned from the function. If a list/tuple of regexes is passed in, the function returns a tuple of
-    the data and the index of the regex it matched.
+    the data and the index of the regex it matched. It will print the data that didn't match any regexes
+    if it times out so you can see why it didn't actually match any regexes.
 
     Optional parameters are:
         recvsize - the size of the data to receive each time through the loop. It defaults to 1 but can
@@ -87,8 +100,11 @@ class nexpect():
 
         timeout - a local timeout override to the class variable timeout. This can be used for a time when
         you want a different timeout than the normal.
+
+        incl - a variable that you can set to false if you don't want the regex you're matching to be returned
+        as part of the data. Example: n.expect('>',incl=False) on "prompt >" would return "prompt "
     '''
-    def expect(self, regex, recvsize=1, timeout=0):
+    def expect(self, regex, recvsize=1, timeout=0, incl=True):
         isList = False
         if type(regex) == type(()) or type(regex) == type([]):
             isList = True
@@ -96,29 +112,43 @@ class nexpect():
         data = ''
         t0 = time.time()
         while True:
+            
             t1 = time.time()
             elapsedTime = t1-t0                 # Get the elapsed time since before the receive loop started
-            if not timeout == 0:                # If there is a local timeout override as function parama=eter
+
+            if not timeout == 0:                # If there is a local timeout override as function parameter
                 if elapsedTime > timeout:       # Test that instead
-                    raise TimeoutException()
-                else:    # If it hasn't timed out, set the socket's timeout so that it won't block forever
+                    raise TimeoutException('Data received before timeout: "' + data + '"')
+                else:    
+                    # If it hasn't timed out, set the socket's timeout so that it won't block forever
                     self.socket.settimeout(timeout - elapsedTime)
-            elif elapsedTime > self.timeout:    # Else test the object's timeout
-                raise TimeoutException()
+
+            # Else test the class timeout variable
+            elif elapsedTime > self.timeout:
+                raise TimeoutException('Data received before timeout: "' + data + '"')
             else:   # If it hasn't timed out, set the socket's timeout so that it won't block forever
                 self.socket.settimeout(self.timeout - elapsedTime)
 
+            # Now receive the data
             try:
-                data += self.socket.recv(recvsize)  # Receive bytes
+                data += self.socket.recv(recvsize)
             except:
-                raise TimeoutException()
-            
+                # I know - catching an exception to raise another one means I'm evil. Sorry!
+                raise TimeoutException('Data received before timeout: "' + data + '"')
+           
+            # Data was received - time to check the data to see if it matches the regexes
             if isList:                                  # Check if a list or tuple of regexes was passed in
                 for counter,reg in enumerate(regex):    # Enumerate the regexes for testing
-                    if re.search(reg, data):
+                    match = re.search(reg, data)
+                    if match:
+                        if not incl:
+                            data.replace(match.group(0), "")    # Will replace the match with a blank string
                         return data, counter            # Return the data and the index of the regex found
             else:
-                if re.search(regex, data):              # If only a single regex was passed in, return the data if it is found
+                match = re.search(regex, data)
+                if match:              # If only a single regex was passed in, return the data if it is found
+                    if not incl:
+                        data.replace(match.group(0),"") # WIll replace the match with a blank string
                     return data
 
     '''
@@ -177,6 +207,5 @@ class nexpect():
 
 
 class TimeoutException(Exception): 
-    pass
-
-    
+    def __init__(self, message=''):
+        Exception.__init__(self, message)
