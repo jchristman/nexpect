@@ -1,17 +1,19 @@
-import unittest, thread, socket, nexpect, sys, time
+import unittest, thread, socket, nexpect, sys, time, ssl
 
 class nexpectTest(unittest.TestCase):
 
-    def startTestServer(self):
+    def startTestServer(self, port, withSSL=False):
         try:
             server = socket.socket()
-            server.bind(('0.0.0.0',9000))
+            if withSSL:
+                server = ssl.wrap_socket(server, server_side=True, certfile='test.crt', keyfile='test.key')
+            server.bind(('0.0.0.0',port))
             server.listen(1)
             while True:
                 sock,addr = server.accept()
                 thread.start_new_thread(self.handler,(sock,))
-        except Exception as e:
-            print e.message
+        except:
+            pass
 
     def handler(self, sock):
         try:
@@ -28,11 +30,15 @@ class nexpectTest(unittest.TestCase):
                     time.sleep(2)
                 elif 'bad_regex' in data:
                     sock.sendall('Data that does not match regex')
+                elif 'SSL_TEST' in data:
+                    sock.sendall('This is in response to the SSL request and should be encrypted')
         except:
             return
 
     def setUp(self):
-        thread.start_new_thread(self.startTestServer,())
+        thread.start_new_thread(self.startTestServer,(9000,False))
+        thread.start_new_thread(self.startTestServer,(9001,True))
+        time.sleep(1)
 
     def test_createModuleWithSocket(self):
         time.sleep(1) # Make sure the server has had time to set up
@@ -72,6 +78,16 @@ class nexpectTest(unittest.TestCase):
         with self.assertRaises(nexpect.TimeoutException):
             s.expect('BOB',timeout=1)    # Because we are expecting BOB and it will not be coming
 
+        s.sendline('exit')
+        s.shutdown()
+
+    def test_SSL(self):
+        s = nexpect.spawn(('localhost', 9001), withSSL=True)
+        s.sendline('SSL_TEST')
+        data = s.expect('encrypted')
+        shouldMatch = 'This is in response to the SSL request and should be encrypted'
+        self.assertEqual(shouldMatch, data)
+        
         s.sendline('exit')
         s.shutdown()
 

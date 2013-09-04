@@ -2,7 +2,13 @@
 nexpect.py
 Authors: Josh Christman and Nathan Hart
 Version: 1.0.2
-Date: 1 September 2013
+Date: 3 September 2013
+
+Changelog (v1.0.3):
+    - Added SSL support
+    - Added two convenience variables
+        - self.before holds the data received before (default inclusive) the regex matched
+        - self.matched holds the regex which the most recent data matched
 
 Changelog (v1.0.2):
     - Modified the TimeoutException to optionally print data
@@ -14,28 +20,12 @@ Changelog (v1.0.1):
     - Added default parameter to nexpect.sendline
         - Allows the method to be called as nexpect.sendline() instead of nexpect.sendline('')
 
-Changelog (v1.0):
-    - Added lots of comments
-    - Added a spawn method
-    - Changed the class name from SocketInteract to nexpect (Socket Expect)
-    - Added ability to pass a tuple for connection information instead of a socket object
-    - Added a timeout to the class that defaults to 30 seconds.
-    - Changed the function name "sendLine" to "sendline" to match pexpect function name
-    - Changed the expect method to return only data instead of tuple if a list of regexes was not passed into function
-    - Added timeout code to the expect method that will correctly change the socket timeout value based on how much time is left in class timeout
-    - Fixed the regex for loop so that it actually works
-    - Added optional parameters to expect method
-        - recvsize: changes the size of each socket receive in the while loop
-        - timeout: a local override to the class wide timeout if user wants a specific timeout on a specific call to expect
-    - Added function nexpect.settimeout()
-    - Added shutdown and start methods
-    - Tested github
 '''
 
 import threading,sys,socket,re,time
 
-def spawn(sock, timeout=30):
-    return nexpect(sock, timeout=timeout)
+def spawn(sock, timeout=30, withSSL=False):
+    return nexpect(sock, timeout=timeout, withSSL=withSSL)
 
 '''
 The class nexpect is a socket expect module written using basic python modules. It should work on any
@@ -56,10 +46,15 @@ class nexpect():
     Optional parameters are:
         timeout - Sets the class timeout variable used as the timeout for the expect method
     '''
-    def __init__(self, sock, timeout=30):
+    def __init__(self, sock, timeout=30, withSSL=False):
         self.timeout = timeout
+        self.before = ''
+        self.matched = ''
         if type(sock) == type(()):
             self.socket = socket.socket()
+            if withSSL:
+                import ssl
+                self.socket = ssl.wrap_socket(self.socket)
             self.socket.connect(sock)
         elif type(sock) == type(socket.socket()):
             self.socket = sock
@@ -143,12 +138,16 @@ class nexpect():
                     if match:
                         if not incl:
                             data.replace(match.group(0), "")    # Will replace the match with a blank string
+                        self.before = data
+                        self.matched = reg
                         return data, counter            # Return the data and the index of the regex found
             else:
                 match = re.search(regex, data)
                 if match:              # If only a single regex was passed in, return the data if it is found
                     if not incl:
-                        data.replace(match.group(0),"") # WIll replace the match with a blank string
+                        data.replace(match.group(0),"") # Will replace the match with a blank string
+                    self.before = data
+                    self.matched = regex
                     return data
 
     '''
