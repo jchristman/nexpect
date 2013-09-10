@@ -1,8 +1,13 @@
 '''
 nexpect.py
 Authors: Josh Christman and Nathan Hart
-Version: 1.0.2
-Date: 3 September 2013
+Version: 1.0.4
+Date: 10 September 2013
+
+Changelog (v1.0.4):
+    - Fixed a bug in the expect method that was keeping the incl flag from working
+    - Made the sendline and send methods always cast the data to a str before doing anything
+        - This makes it possible to do sendline(1) and it send the number 1 and concatenate without having to cast to a string on the user side
 
 Changelog (v1.0.3):
     - Added SSL support
@@ -65,7 +70,7 @@ class nexpect():
     This method does nothing but call the send method of the socket and pass the data to the socket
     '''
     def send(self, data=''):
-        self.socket.sendall(data)
+        self.socket.sendall(str(data))
 
     '''
     This method appends a delimeter to the data and then sends it to the socket
@@ -74,7 +79,7 @@ class nexpect():
         delimeter - Defaults to a '\n' but can be set to anything
     '''
     def sendline(self, data='', delimeter='\n'):
-        self.socket.sendall(data + delimeter)
+        self.socket.sendall(str(data) + delimeter)
     
     '''
     A convience method to access the underlying socket's recv mechanism.
@@ -137,7 +142,7 @@ class nexpect():
                     match = re.search(reg, data)
                     if match:
                         if not incl:
-                            data.replace(match.group(0), "")    # Will replace the match with a blank string
+                            data = data.replace(match.group(0), "")    # Will replace the match with a blank string
                         self.before = data
                         self.matched = reg
                         return data, counter            # Return the data and the index of the regex found
@@ -145,7 +150,7 @@ class nexpect():
                 match = re.search(regex, data)
                 if match:              # If only a single regex was passed in, return the data if it is found
                     if not incl:
-                        data.replace(match.group(0),"") # Will replace the match with a blank string
+                        data = data.replace(match.group(0),"") # Will replace the match with a blank string
                     self.before = data
                     self.matched = regex
                     return data
