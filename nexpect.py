@@ -1,8 +1,12 @@
 '''
 nexpect.py
 Authors: Josh Christman and Nathan Hart
-Version: 1.0.4
-Date: 10 September 2013
+Version: 1.0.5
+Date: 11 November 2013
+
+Changelog (v1.0.5):
+    - Added a global recvsize variable which will a permanent change to the number of bytes received per test of the regexes in the expect modules.
+    - Rearranged some code to more efficiently use global variables recvsize and timeout
 
 Changelog (v1.0.4):
     - Fixed a bug in the expect method that was keeping the incl flag from working
@@ -14,17 +18,6 @@ Changelog (v1.0.3):
     - Added two convenience variables
         - self.before holds the data received before (default inclusive) the regex matched
         - self.matched holds the regex which the most recent data matched
-
-Changelog (v1.0.2):
-    - Modified the TimeoutException to optionally print data
-    - Modified the nexpect.expect function to print the data it received if the function times out in the exception data. This will make it easier to tell why a function failed to match a regex or set of regexes.
-    - Added a parameter to nexpect.expect that will optionally exclude the matched regex from the data returned, essentially leaving only the data before the regex is matched
-    - Added a method "recv" to access the underlying socket recv mechanism without having to touch the socket manually. Allows the user to recv a fixed number of bytes if necessary.
-
-Changelog (v1.0.1):
-    - Added default parameter to nexpect.sendline
-        - Allows the method to be called as nexpect.sendline() instead of nexpect.sendline('')
-
 '''
 
 import threading,sys,socket,re,time
@@ -51,8 +44,9 @@ class nexpect():
     Optional parameters are:
         timeout - Sets the class timeout variable used as the timeout for the expect method
     '''
-    def __init__(self, sock, timeout=30, withSSL=False):
+    def __init__(self, sock, timeout=30, recvsize=1, withSSL=False):
         self.timeout = timeout
+        self.recvsize = recvsize
         self.before = ''
         self.matched = ''
         if type(sock) == type(()):
@@ -104,7 +98,11 @@ class nexpect():
         incl - a variable that you can set to false if you don't want the regex you're matching to be returned
         as part of the data. Example: n.expect('>',incl=False) on "prompt >" would return "prompt "
     '''
-    def expect(self, regex, recvsize=1, timeout=0, incl=True):
+    def expect(self, regex, recvsize=-1, timeout=-1, incl=True):
+        if recvsize == -1:
+            recvsize = self.recvsize
+        if timeout == -1:
+            timeout = self.timeout
         isList = False
         if type(regex) == type(()) or type(regex) == type([]):
             isList = True
@@ -116,18 +114,11 @@ class nexpect():
             t1 = time.time()
             elapsedTime = t1-t0                 # Get the elapsed time since before the receive loop started
 
-            if not timeout == 0:                # If there is a local timeout override as function parameter
-                if elapsedTime > timeout:       # Test that instead
-                    raise TimeoutException('Data received before timeout: "' + data + '"')
-                else:    
-                    # If it hasn't timed out, set the socket's timeout so that it won't block forever
-                    self.socket.settimeout(timeout - elapsedTime)
-
-            # Else test the class timeout variable
-            elif elapsedTime > self.timeout:
+            if elapsedTime > timeout:           # Test the timeout
                 raise TimeoutException('Data received before timeout: "' + data + '"')
-            else:   # If it hasn't timed out, set the socket's timeout so that it won't block forever
-                self.socket.settimeout(self.timeout - elapsedTime)
+            else:    
+                # If it hasn't timed out, set the socket's timeout so that it won't block forever
+                self.socket.settimeout(timeout - elapsedTime)
 
             # Now receive the data
             try:
