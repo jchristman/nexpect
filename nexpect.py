@@ -1,8 +1,12 @@
 '''
 nexpect.py
 Authors: Josh Christman and Nathan Hart
-Version: 1.0.5
-Date: 11 November 2013
+Version: 1.0.6
+Date: 8 December 2013
+
+Changelog (v1.0.6):
+    - Created new method: n.expectnl() which will expect a newline and not include the newline in the result it returns. I'm adding this because of
+        how often I do n.expect('\\n', incl=False)
 
 Changelog (v1.0.5):
     - Added a global recvsize variable which will a permanent change to the number of bytes received per test of the regexes in the expect modules.
@@ -12,12 +16,6 @@ Changelog (v1.0.4):
     - Fixed a bug in the expect method that was keeping the incl flag from working
     - Made the sendline and send methods always cast the data to a str before doing anything
         - This makes it possible to do sendline(1) and it send the number 1 and concatenate without having to cast to a string on the user side
-
-Changelog (v1.0.3):
-    - Added SSL support
-    - Added two convenience variables
-        - self.before holds the data received before (default inclusive) the regex matched
-        - self.matched holds the regex which the most recent data matched
 '''
 
 import threading,sys,socket,re,time
@@ -145,6 +143,12 @@ class nexpect():
                     self.before = data
                     self.matched = regex
                     return data
+
+    '''
+    The expectnl method just calls self.expect('\n',incl=False)
+    '''
+    def expectnl(self):
+        return self.expect('\n',incl=False)
 
     '''
     The interact method makes this into a netcat-like functionality. It will print whatever it receives
